@@ -1,0 +1,248 @@
+---
+title: "Homework 3"
+author: "Jay Parikh, UT EID: jp66764, Github: https://github.com/JayParikh1027/SDS-315"
+date: "2025-02-13"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Problem 1: Gas Prices
+
+```{r, echo=FALSE, inlcude = FALSE, message = FALSE, warning = FALSE}
+library(tidyverse)
+library(mosaic)
+library(dplyr)
+library(tibble)
+set.seed(123)
+library(tinytex)
+gasprices <- read.csv("gasprices.csv")
+```
+
+# A: Gas Prices Relative to Competition
+``` {r, echo=FALSE, message = FALSE}
+# Bootstrap Competition
+bootstrap_comp <- do(10000) * diffmean(Price ~ Competitors, data = resample(gasprices))
+
+# Get 95% interval
+confint(bootstrap_comp, level = 0.95)
+
+
+```
+
+**Claim:** Gas stations charge more if they lack direct competition in sight.
+
+**Evidence:** According to our 95% confidence interval, the mean price difference between stations with and without competitiors is 0. This suggests that any difference in price is not statistically significant. 
+
+**Conclusion:** The data does not support the theory that gas stations without competition charge more.
+
+# B: Gas Price Relative to Area
+
+``` {r, echo=FALSE, message = FALSE}
+boot_prices_income <- do(10000) * cor(resample(gasprices, replace = TRUE)$Price, 
+                                      resample(gasprices, replace = TRUE)$Income)
+
+
+confint_income <- confint(boot_prices_income, level = 0.95)
+
+
+boot_prices_income <- as_tibble(boot_prices_income)  
+colnames(boot_prices_income) <- c("Correlation")
+```
+**Claim:** Gas stations in higher-income areas have higher gas prices.
+
+**Evidence:**  According to our 95% confidence interval, the correlation between median household income and gas prices does not include 0. This suggests that the positive correlation is statistically significant, meaning that gas prices tend to be higher in higher-income areas.
+
+**Conclusion:** This analysis suggests that gas prices do tend to be higher when the area is higher income. 
+
+
+# C: Gas stations at stoplights charge more.
+
+# Theory C: Stoplights and Gas Prices
+
+```{r, echo=FALSE, message = FALSE}
+bootprices_light <- do(10000) * diffmean(Price ~ Stoplight, data = resample(gasprices))
+confint_light <- confint(bootprices_light, level = .95)
+```
+
+**Claim:** Gas stations near stoplights charge more.
+
+**Evidence:** According to our 95% confidence interval, the mean price difference between gas stations near stoplights and those further away includes 0. This suggests that any difference in gas prices based on proximity to stoplights is not statistically significant.
+
+**Conclusion:** According to our data, there is no statistical evidence that gas stations near stoplights charge more. While factors like traffic congestion may play a role in pricing strategies, this dataset does not confirm such an effect.
+
+---
+
+# Theory D: Highway Access and Gas Prices
+
+```{r, echo=FALSE, message = FALSE}
+# Bootstrap Analysis for Highway Access
+bootprices_highway <- do(10000) * diffmean(Price ~ Highway, data = resample(gasprices))
+
+# Confidence Interval
+confint_highway <- confint(bootprices_highway, level = 0.95)
+```
+
+**Claim:** Gas stations with highway access have higher prices.
+
+**Evidence:** According to our 95% confidence interval, the mean price difference between gas stations near stoplights and those further away includes 0. This suggests that any difference in gas prices based on proximity to stoplights is not statistically significant.
+
+**Conclusion:** According to our analysis, highway-accessible stations tend to cost more, supporting the theory.
+
+---
+
+# Theory E: Shell vs. Other Brands
+
+```{r, echo=FALSE, message=FALSE}
+# Bootstrap Analysis for Shell Prices
+bootprices_shell <- do(10000) * diffmean(Price ~ (Brand == "Shell"), data = resample(gasprices))
+
+# Confidence Interval
+confint_shell <- confint(bootprices_shell, level = 0.95)
+```
+
+
+**Claim:** Shell charges more than other brands.
+
+**Evidence:** According to our 95% confidence interval, the mean price difference between Shell gas stations and other brands does not contain 0. This suggests that Shell consistently charges higher prices compared to competitors.
+
+**Conclusion:** The theory is supported, showing that Shell gas stations have higher prices on average.
+
+## Problem 2: Mercedes S-Class Vehicles
+
+# A: Filter: 2011 + 63 AMG trim
+```{r, echo=FALSE, message=FALSE}
+
+mercedes = read.csv("sclass.csv")
+
+spec_AMG <- filter(mercedes, year == 2011, trim == "63 AMG")
+
+mt = do(10000) * mean(~mileage, data = mosaic::resample(spec_AMG))
+
+confint(mt, level = 0.95)
+
+```
+
+According 
+
+# B: Filter: 2014 + 550
+
+``` {r, echo=FALSE, message = FALSE}
+spec_550 <- mercedes[mercedes$year == 2014 & mercedes$trim == "550", ]
+
+spec_550 <- mutate(spec_550, isBlack = color == "Black")
+
+boot_black <- do(10000) * prop(~isBlack, data = mosaic::resample(spec_550))
+
+confint(boot_black, level = 0.95)
+
+
+```
+
+## Problem 3: NBC Market Research
+
+# Part A: 
+
+1. Consider the shows “Living with Ed” and “My Name is Earl.” Who makes people happier: Ed or
+Earl?
+2. I decided to use bootstrap resampling to help answer this question. The number of bootstrap resamples is set to 10,000.
+3. The 95 percentile confidence interval has a mean difference of (-0.096 to 0.404). Since 0 is between the intervals, We cannot conclude if there is a statistically significant difference between the two shows. 
+4. There is no difference in mean happiness between viewers of either show.
+
+``` {r, echo=FALSE, message=FALSE}
+nbcdata <- read.csv("nbc_pilotsurvey.csv")
+library(dplyr)
+library(mosaic)
+
+nbcdata <- read.csv("nbc_pilotsurvey.csv")
+
+boot_results <- do(10000) * {
+  ed_happy_resampled <- resample(filter(nbcdata, Show == "Living with Ed")$Q1_Happy)
+  earl_happy_resampled <- resample(filter(nbcdata, Show == "My Name is Earl")$Q1_Happy)
+  mean(ed_happy_resampled) - mean(earl_happy_resampled)
+}
+
+confint(boot_results, level = 0.95)
+
+
+
+
+``` 
+# Part B: Loser vs. Apprentice
+
+1. Consider the shows “The Biggest Loser” and “The Apprentice: Los Angeles.” Which reality/contest
+show made people feel more annoyed?
+2. I decided to use bootstrap resampling to help answer this question. The number of bootstrap resamples is set to 10,000.
+3. This means the 95% percentile confidence interval for the difference in means between the two groups is between -0.525 and -0.014. This suggests there is a statistically significant difference between the two. 
+4. According to our data, Bigger Loser viewers were less annoyed than The Apprentice: Los Angeles after conducting Bootstrap resampling.
+
+``` {r, echo=FALSE, message = FALSE}
+library(tidyverse)
+library(boot)
+library(dplyr)
+library(mosaic)
+nbcdata <- read.csv("nbc_pilotsurvey.csv")
+
+boot_results_annoyed <- do(10000) * {
+  loser_resampled <- resample(filter(nbcdata, Show == "The Biggest Loser")$Q1_Annoyed)
+  apprentice_resampled <- resample(filter(nbcdata, Show == "The Apprentice: Los Angeles")$Q1_Annoyed)
+  mean(loser_resampled) - mean(apprentice_resampled)
+}
+
+confint(boot_results_annoyed, level = 0.95)
+
+```
+
+# Part C: Dancing with the Stars - Confusing?
+``` {r, echo=FALSE, message = FALSE}
+dance_data <- subset(nbcdata, Show == "Dancing with the Stars")
+is_confusing <- dance_data$Q2_Confusing >= 4
+
+bootstrap_proportions <- do(10000) * {
+  sample_resampled <- resample(is_confusing)
+  mean(sample_resampled, na.rm = TRUE)
+}
+
+observed_proportion <- mean(is_confusing, na.rm = TRUE)
+
+confint(bootstrap_proportions, level = 0.95)
+
+result <- c(Observed_Proportion = observed_proportion, Lower_CI = confint(bootstrap_proportions, level = 0.95)[1], Upper_CI = confint(bootstrap_proportions, level = 0.95)[2])
+result
+
+```
+
+1. Consider the show “Dancing with the Stars.” Did viewers feel more confused on average?
+2. To answer this question, I used bootstrap resampling with 10,000 resamples to estimate the confidence interval for the proportion of viewers who found the show confusing.
+3. The 95% percentile confidence interval for the proportion of “confusing” responses is between [lower bound] and [upper bound]. This indicates the range in which we expect the true proportion to lie with 95% confidence.
+4. According to our data, the proportion of viewers who found "Dancing with the Stars" confusing was estimated to be [observed proportion], and the confidence interval confirms the uncertainty around this estimate.
+
+
+## Problem 4: Ebay
+
+``` {r, echo=FALSE, message=FALSE}
+ebay_data <- read.csv("ebay.csv")
+ebay_data$revenue_ratio <- ebay_data$rev_after / ebay_data$rev_before
+
+boot_results <- do(10000) * {
+  sample_resampled <- resample(ebay_data$revenue_ratio)
+  sample_paused <- mean(sample_resampled[ebay_data$adwords_pause == 1], na.rm = TRUE)
+  sample_non_paused <- mean(sample_resampled[ebay_data$adwords_pause == 0], na.rm = TRUE)
+  sample_paused - sample_non_paused
+}
+
+confint(boot_results, level = 0.95)
+
+```
+
+1. Do the revenue ratios between the treatment (ads paused) and control (ads not paused) groups differ significantly, or does the data suggest that pausing paid search advertising on Google impacts eBay's revenue generation?
+
+2. The revenue ratio for each DMA was computed, and the mean revenue ratios for the treatment and control groups were compared. A 95% confidence interval for the mean difference was derived through bootstrap resampling with 10,000 iterations.
+
+3. According to our 95% confidence interval, the difference in revenue ratio is -0.052. The 95% confidence interval ranges from -0.091 to -0.013. Because 0 is not included, it is not statistically significant.
+
+4. The data does not support the claim that revenue ratios between treatment and control differ significantly. 
+
+
