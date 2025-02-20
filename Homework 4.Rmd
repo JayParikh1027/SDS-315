@@ -1,0 +1,182 @@
+---
+title: "Homework 4"
+author: "Jay Parikh, UT EID: jp66764, Github: https://github.com/JayParikh1027/SDS-315"
+date: "2025-02-20"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(tidyverse)
+library(mosaic)
+library(dplyr)
+library(tibble)
+set.seed(123)
+library(knitr)
+library(tinytex)
+```
+
+## Question 1: Iron Bank
+
+``` {r, echo=FALSE, message=FALSE, warning = FALSE}
+library(ggplot2)
+
+total_trades <- 2021  # Total trades
+base_prob <- 0.024    # Baseline probability of a trade being flagged
+
+# Simulate flagged trades
+simulated_flagged <- rbinom(100000, total_trades, base_prob)
+
+# Calculate p-value
+p_value_bank <- mean(simulated_flagged >= 70)
+
+# Create a data frame with a named column
+flagged_frame <- data.frame(flagged = simulated_flagged)
+
+# Plot the histogram
+ggplot(flagged_frame, aes(x = flagged)) +
+  geom_histogram(fill = "light blue", col = "black", bins = 50) +
+  labs(title = "Distribution of Flagged Trades",
+       x = "Number of Flagged Trades",
+       y = "Frequency") +
+  theme_minimal()
+
+```
+
+For question 1 regarding fradulent securities trading, our null hypothesis, H0, is that there is no unusual trading activity at Iron Bank because the true rate of flagged trades at Iron Bank is equal to the baseline rate of 2.4% observed at other firms. To answer this question, we will use Monte Carlo simulations to calculate a p-value under our null hypothesis. Our test statistic, T, is the number of flagged trades. Based on our simulation, we attain a p-value of 0.002 - giving us strong evidence to reject the null hypothesis. It appears that it is implausible that Iron Bank's trading patterns are consistent with the baseline rate.
+
+## Question 2: Health Inspection
+
+``` {r, echo=FALSE, message=FALSE, warning=FALSE}
+inspections <- 50  
+health_prob <- 0.03
+sim_violations <- rbinom(100000, inspections, health_prob)
+p_value_health <- mean(sim_violations >= 8)
+
+# Optional: Visualize the simulation results (highly recommended)
+library(ggplot2)
+health_df <- data.frame(violation = sim_violations)
+
+
+ggplot(health_df, aes(x = violation)) +
+  geom_histogram(binwidth = 1, fill = "light pink", color = "black") +
+  geom_vline(xintercept = 8, color = "red",) +
+  labs(title = "Simulated Health Code Violations", x = "Number of Violations", y = "Frequency") +
+  theme_bw()
+
+
+```
+
+Our null hypothesis, H0,  is that, on average, restaurants in the city are cited for health code violations at the same 3% baseline rate. To answer this question, we will use Monte Carlo simulations to calculate a p-value under our null hypothesis. Our test statistic, T, is the number of health code violations. Based on our simulation, we attain a p-value of 0.00008 - giving us extremely strong evidence to reject the null hypothesis. It appears that it is implausible that Gourmet Bites number of violations is at the same rate at other restaurants in the city. Gourmet Bites is far below the acceptable number of violations, and could potentially be shut down.
+
+## Question 3: Evaluating Jury Selection for Bias
+``` {r, echo=FALSE, message = FALSE, warning = FALSE}
+
+expected_prob <- c(Group1 = 0.30, Group2 = 0.25, Group3 = 0.20, Group4 = 0.15, Group5 = 0.10)
+observed <- c(Group1 = 85, Group2 = 56, Group3 = 59, Group4 = 27, Group5 = 13)
+total_jurors <- sum(observed)
+expected <- expected_prob * total_jurors
+
+chi_squared_statistic <- function(observed, expected) {
+  sum((observed - expected)^2 / expected)
+}
+
+observed_chi2 <- chi_squared_statistic(observed, expected)
+
+
+n_simulations <- 100000  # Increased for better accuracy
+
+simulated_chi2 <- replicate(n_simulations, {
+  simulated_data <- rmultinom(1, total_jurors, prob = expected_prob)
+  names(simulated_data) <- names(expected_prob) # Name the simulated data
+  chi_squared_statistic(simulated_data, expected)
+})
+
+p_value_jury <- mean(simulated_chi2 >= observed_chi2)
+
+# Create a data frame for the table
+table_data <- data.frame(
+  Group = names(observed),
+  Observed = observed,
+  Expected = expected,
+  Difference = observed - expected,
+  `Chi Square Contribution` = (observed - expected)^2 / expected # Added this column
+)
+```
+
+In order to determine whether the distribution of jurors empaneled by this judge is significantly different from the country’s population proportions, an appropriate hypothesis test would be a chi goodness of fit test– allowing us to determine if the distribution of jurors selected significantly differ from the eligible jury population. Our null hypothesis (H0) is that the distribution jurors selected matches the county’s population proportions with no bias. 
+	Using a chi goodness of fit test (our test statistic T), we need to calculate an expected count, which would be the demographic breakdown of the county’s eligible jury pool by percentage multiplied by the total number of jurors for 20 trials (12 x 20). Multiplying for each group, one through five, respectively, we get the following expected counts: 72, 60, 48, 36, and 24. We compare this to our observed count to compute our chi square statistic. Using each group, we can find the difference between observed and expected count, square that number, and divide by the expected count to find our chi square statistic. 
+
+``` {r, echo=FALSE}
+# Print the table using knitr::kable
+knitr::kable(table_data, align = c("c", "c", "c", "c", "c"), caption = "Observed and Expected Jury Counts")
+```
+
+Adding up our values from our Chi Square Statistic, we get a sum of 12.43. With this number, we can now simulate 100000 samples via bootstrap resampling and compare our two chi square statistics to find our p-value (P(T | H0)). After bootstrap resampling and taking the mean of our samples, we get a p-value of around 0.014. Because our p-value is less than the conventional significance level of 0.05, we would reject the null hypothesis. This suggests that the distribution of jurors selected by the judge is significantly different from the county's population proportions, indicating bias in the selection of jurors. To investigate further, additional data could be gathered on other potential biases in the jury selection process, such as socioeconomic status or geographic location.
+
+## Question 4: LLM Watermarking
+
+``` {r, echo = FALSE, message = FALSE, warning = FALSE}
+text_data = readLines("brown_sentences.txt")
+
+letter_probabilities = read.csv("letter_frequencies.csv")
+letter_probabilities$Probability = letter_probabilities$Probability / sum(letter_probabilities$Probability)
+
+calculate_chi_squared = function(text, probability_table) {
+  cleaned_text = gsub("[^A-Za-z]", "", text)
+  cleaned_text = toupper(cleaned_text)
+  
+  observed_counts = table(factor(strsplit(cleaned_text, "")[[1]], levels = probability_table$Letter))
+  
+  total_count = sum(observed_counts)
+  expected_counts = total_count * probability_table$Probability
+  chi_stat = sum((observed_counts - expected_counts)^2 / expected_counts)
+  return(chi_stat)
+}
+
+chi_squared_results = sapply(text_data, calculate_chi_squared, probability_table = letter_probabilities)
+
+# Creating a data frame for chi-squared statistics
+null_distribution_data = data.frame(chi_squared_value = chi_squared_results)
+
+ggplot(null_distribution_data) + 
+  geom_histogram(aes(x = chi_squared_value), bins = 40, fill = 'pink', col = "black") + 
+  labs(title = "Null Distribution of Chi-Squared Statistics",
+       x = "Chi-Squared Statistic",
+       y = "Count")
+
+
+
+# Part B
+
+sentences <- c(
+  "She opened the book and started to read the first chapter, eagerly anticipating what might come next.",
+  "Despite the heavy rain, they decided to go for a long walk in the park, crossing the main avenue by the fountain in the center.",
+  "The museum’s new exhibit features ancient artifacts from various civilizations around the world.",
+  "He carefully examined the document, looking for any clues that might help solve the mystery.",
+  "The students gathered in the auditorium to listen to the guest speaker’s inspiring lecture.",
+  "Feeling vexed after an arduous and zany day at work, she hoped for a peaceful and quiet evening at home, cozying up after a quick dinner with some TV, or maybe a book on her upcoming visit to Auckland.",
+  "The chef demonstrated how to prepare a delicious meal using only locally sourced ingredients, focusing mainly on some excellent dinner recipes from Spain.",
+  "They watched the sunset from the hilltop, marveling at the beautiful array of colors in the sky.",
+  "The committee reviewed the proposal and provided many points of useful feedback to improve the project’s effectiveness.",
+  "Despite the challenges faced during the project, the team worked tirelessly to ensure its successful completion, resulting in a product that exceeded everyone’s expectations."
+)
+
+calculate_p_value = function(chi_stat, null_distribution) {
+  mean(null_distribution$chi_squared_value >= chi_stat)
+}
+
+chi_squared_stats = sapply(sentences, calculate_chi_squared, probability_table = letter_probabilities)
+p_values = sapply(chi_squared_stats, calculate_p_value, null_distribution = null_distribution_data)
+
+results = data.frame(P_Value = round(p_values, 3))
+
+kable(results, col.names = c("P-Value"), caption = "Chi-Squared Test Results for Each Sentence")
+
+
+```
+
+Our null hypothesis (H0) from the LLM watermarking question is that the letter frequencies in the sentence match the typical English letter distribution and do not contain any sign of LLM watermarking. To find which sentence is most likwly affected by LLM watermarking, we can calculate the p values of each sentence. The p value that is lowest under 0.05 is the sentence "Feeling vexed after an arduous and zany day at work, she hoped for a peaceful and quiet evening at home, cozying up after a quick dinner with some TV, or maybe a book on her upcoming visit to Auckland.", with a p value of 0.009. This is gives us extreme probable cause to assume that this sentence is affected by LLM watermarking. his low p-value suggests that the observed letter frequencies in this sentence deviate significantly from what we'd expect in naturally generated English text. 
+
+
+
