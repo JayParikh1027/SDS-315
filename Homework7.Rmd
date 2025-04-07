@@ -1,0 +1,151 @@
+---
+title: "Homework 7"
+author: "Jay Parikh UT EID: jp66764 Github: https://github.com/JayParikh1027/SDS-315"
+date: "2025-04-05"
+output: pdf_document
+---
+
+```{r, echo=FALSE, include=FALSE}
+library(dplyr)
+armfold <- read.csv("armfold.csv")
+
+
+# Number of males and females
+table(armfold$Sex)
+
+
+# Proportions
+prop.table(table(armfold$Sex, armfold$LonR_fold), 1)
+```
+
+## Problem 1: Armfolding  
+
+# A. Load and Examine the Data:
+
+There are 106 Males and 111 Females in this dataset. The proportion of males who fold Left over right is 0.472, and the proportion of femalees who fold left over right is 0.423. The proportion of males who fold right over left is 0.528 and the proportion of females who fold right over left is 0.577.
+
+```{r, echo=FALSE, include=FALSE}
+# Create subset for males and females
+male_prop <- mean(armfold$LonR_fold[armfold$Sex == "Male"])
+female_prop <- mean(armfold$LonR_fold[armfold$Sex == "Female"])
+
+# Observed difference
+diff <- male_prop - female_prop
+print(diff)
+```
+
+# B. Observed Difference:
+
+The observed difference in proportions between males and females (males minus females) is about 0.0483.
+
+``` {r, echo=FALSE, include=FALSE}
+num_male <- sum(armfold$Sex == "Male")
+num_female <- sum(armfold$Sex == "Female")
+
+# Count how many in each group folded Left over Right (LonR_fold == 1)
+male_successes <- sum(armfold$Sex == "Male" & armfold$LonR_fold == 1)
+female_successes <- sum(armfold$Sex == "Female" & armfold$LonR_fold == 1)
+
+# Run the two-sample proportion test
+prop.test(x = c(male_successes, female_successes),
+          n = c(num_male, num_female))
+
+# Compute standard error
+standard_error <- sqrt((male_prop * (1 - male_prop) / num_male) + 
+                  (female_prop * (1 - female_prop) / num_female))
+
+# 95% Confidence Interval
+lower<- diff - 1.96 * standard_error
+upper <- diff + 1.96 * standard_error
+
+
+```
+
+# C. Confidence Interval:
+
+The formula for standard error in a difference of proportions is sqrt((p1\*(1-p1)/n1) + (p2-(1-p2)/n2)). The Z-Value taken here is 1.96, because it captures a 95% confidence interval. The values used are the number of males and females who folded their left arm over their right, along with the total number of males and females in the dataset.
+
+# D.
+If we repeated this experiment over again multiple times, then we would expect that 95% of those intervals will contain  this difference in population proportions.
+
+# E.
+
+The standard error is the standard deviation of the population distribution and measures its variability.
+
+# F.
+
+If we were to take random samples ofmale/female populations and calculated the proportion of each group that folds their left over right, we would get the distribution of the difference of proportions in the sampling distribution.
+
+# G.
+
+The Central Limit Theorem states that if we take a large enough number of random samples from a population, the distribution of the sample means or proportions will approximate a normal distribution.
+
+# H.
+
+Because our confidence interval includes 0, we cannot be sure that there is evidence of a sex difference causing people to fold their left over their right. However, it is still a possibility. 
+
+# I.
+
+Due to random variation the confidence intervals will be different. 
+
+## Problem 2: Get out the vote
+
+``` {r, echo=FALSE, include=FALSE}
+library(readr)
+library(mosaic)
+turnout <- read_csv("turnout.csv")
+prop.test(voted1998 ~ GOTV_call, data = turnout)
+diffprop(voted1998 ~ GOTV_call, data = turnout)
+
+```
+
+We calculated the proportion of individuals who received a GOTV call and voted in 1998, as well as the proportion who did not receive a call and voted. We then compute the difference between the groups (diffprop)
+
+We can now use linear regression to analyze this relationship:
+
+# Part B
+
+``` {r, echo=FALSE, include=FALSE}
+t.test(voted1996~GOTV_call, data=turnout)
+t.test(MAJORPTY~GOTV_call, data=turnout)
+t.test(AGE~GOTV_call, data=turnout)
+prop.test(voted1998 ~ GOTV_call, data=turnout) 
+
+
+```
+
+The first t-test shows that individuals who received a government call were more likely to have voted in 1996, reflected in the group 1 higher mean. In the MAJORPTY variable, the group 1 higher mean shows that those who were associated with a major party were more likely to have been called. In the t-test for age, group 1 (the individuals who were called) also had a higher mean age than group 0, indicating that older individuals were more likely to have been called. In both cases, the confidence intervals do not include 0, indicating statistically significant results.
+
+# Part C
+
+``` {r, echo=FALSE, include=FALSE}
+library(MatchIt)
+govt_match <- matchit(GOTV_call ~ voted1996 + AGE + MAJORPTY, data = turnout, method = "nearest", ratio = 5)
+summary(govt_match)
+
+govt_matched <- match.data(govt_match)
+
+lapply(c("voted1996", "AGE", "MAJORPTY"), function(var) {
+  formula <- as.formula(paste(var, "~ GOTV_call"))
+  t.test(formula, data = govt_matched)
+})
+
+call_match <- govt_matched[govt_matched$GOTV_call == 1, ]
+not_call_match <- govt_matched[govt_matched$GOTV_call == 0, ]
+
+# Proportion tests for each group
+prop_1998_call_match <- prop.test(~voted1998, data = call_match)
+prop_1998_notcall_match <- prop.test(~voted1998, data = not_call_match)
+
+# Difference in proportions
+diffprop(~voted1998 | GOTV_call, data = govt_matched)
+
+# Proportion test across both groups
+prop.test(voted1998 ~ GOTV_call, data = govt_matched)
+
+```
+
+Because our confidence interval does not include 0, we are 95% confident that government calls increased voting in 1998.
+
+
+
